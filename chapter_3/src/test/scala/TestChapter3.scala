@@ -52,3 +52,61 @@ class TestChapter3:
     val l1 = MyList.of(1,2,3,4)
     val l2 = l1.init()
     assertEquals(l2, MyList.of(1,2,3))
+
+  @Test def list_foldRight(): Unit =
+    val l1 = MyList.of(1,2,3,4)
+    val sum = MyList.foldRight(l1, 0, (x,y) => x+y)
+    assertEquals(10,sum)
+
+  @Test def length(): Unit =
+    val l1 = MyList.of(1,2,3,4)
+    assertEquals(4, l1.length)
+    assertEquals(0, MyList.Nil.length)
+
+  @Test def list_foldLeft(): Unit =
+    val l1 = MyList.of(1,2,3,4)
+    val sum = MyList.foldLeft(l1, 0, (x,y) => x+y)
+    assertEquals(10,sum)
+
+  @Test def list_lengthWithFoldLeft(): Unit =
+    val l1 = MyList.of(1,2,3,4)
+    assertEquals(4, MyList.lengthWithFoldLeft(l1))
+    assertEquals(0, MyList.lengthWithFoldLeft(MyList.Nil))
+
+  @Test def list_sumWithFoldLeft(): Unit =
+    val l1 = MyList.of(1,2,3,4)
+    assertEquals(10, MyList.sumWithFoldLeft(l1))
+    assertEquals(0, MyList.sumWithFoldLeft(MyList.Nil))
+
+  @Test def list_productWithFoldLeft(): Unit =
+    val l1 = MyList.of(1.0,2.0,3.0,4.0)
+    val product = MyList.productWithFoldLeft(l1)
+    assertEquals(24.0,product,0.0000001)
+    assertEquals(0.0,MyList.productWithFoldLeft(MyList.Nil),0.0000001)
+
+  @Test def reverse(): Unit =
+    val l1 = MyList.of(1,2,3,4)
+    val l2 = MyList.of(4,3,2,1)
+    assertEquals(l2, l1.reverse())
+    assertEquals(MyList.Nil, MyList.Nil.reverse())
+
+  @Test def List_foldRightWithFoldLeft(): Unit =
+    val l1 = MyList.of('a','b','c')
+    val concat = MyList.foldRightWithFoldLeft(l1, "_", (x,y) => x+y)
+    assertEquals("abc_",concat)
+
+  @Test def List_foldLeftWithFoldRight(): Unit =
+    val l1 = MyList.of('a','b','c')
+    val concat = MyList.foldLeftWithFoldRight(l1, "_", (x,y) => x+y)
+    assertEquals("_abc",concat)
+
+  @Test def list_appendWithFold(): Unit =
+    val l1 = MyList.of(1,2)
+    val l2 = MyList.of(3,4)
+    val l3 = MyList.of(1,2,3,4)
+    assertEquals(l3,MyList.appendWithFold(l1,l2))
+
+  @Test def list_concatenate(): Unit =
+    val l1 = MyList.of(MyList.of(1,2),MyList.of(3,4))
+    val l2 = MyList.of(1,2,3,4)
+    assertEquals(l2,MyList.concatenate(l1))

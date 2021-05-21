@@ -24,6 +24,55 @@ object MyList:
     case Nil => l2
     case Cons(x, xs) => Cons(x, append(xs, l2))
 
+  def foldRight[A,B](l: MyList[A], z: B, f: (A, B) => B): B = l match
+    case Nil => z
+    case Cons(x, xs) => f(x, foldRight(xs, z, f))
+
+  @annotation.tailrec
+  def foldLeft[A,B](l: MyList[A], z: B, f: (B, A) => B): B = l match
+    case Nil => z
+    case Cons(x, xs) => foldLeft(xs, f(z,x), f)
+  // wrong, does not fold right but left...
+  // def foldRightWithFoldLeft[A,B](l: MyList[A], z: B, f: (A, B) => B): B =
+  //  foldLeft(l, (x:B)=>x, (g:B=>B,x:A) => (y:B) => f(x,g(y)))(z)
+  // (1,2,3)  0   f=x+y
+  // Nil  frl=(z)->z    frl(0)=0
+  // (1)  frl = h((z)->z,1) = (z)->f(1,(z)->z)  frl(0) = f(1,0)
+  // (2)  frl = h((z)->f(1,(z)->z),2) = (z)->f(2,(z)->f(1,(z)->z))  frl(0) = f(2,f(1,0))
+
+  def foldRightWithFoldLeft[A,B](l: MyList[A], z: B, f: (A, B) => B): B =
+    foldLeft(l, (x:B)=>x, (g:B=>B,x:A) => (y:B) => g(f(x,y)))(z)
+  // (1,2,3)  0   f=x+y
+  // Nil  frl=(z)->z    frl(0)=0
+  // (1) frl=(z)->((k)->k)(f(1,z))  frl(0)=((k)->k)(f(1,0)) = f(1,0)
+  // (1,2) frl=(l)->((z)->((k)->k)(f(1,z)))(f(2,l))   frl(0) = ((z)->((k)->k)(f(1,z)))(f(2,0)) = ((k)->k)(f(1,f(2,0)))) = f(1,f(2,0))
+
+  def foldLeftWithFoldRight[A,B](l: MyList[A], z: B, f: (B,A) => B): B =
+    foldRight(l, (b:B) => b, (a:A,g) => y => g(f(y,a)))(z)
+  // Nil,"_"   flr=(x0)->x0   flr("_")="_"
+  // ('a'),"_"  flr = h('a',foldRight(Nil,(x0)->x0,h)) = h('a',(x0)->x0) = (x1) -> ((x0)->x0)(f(x1,'a'))
+  //            flr("_") = h('a',(x0)->x0)("_") = ((x0)->x0)(f("_",'a')) = f("_",'a')
+  //            h(a:A,b:B=>B) <=>  (z:B) => b(f(z,a))
+  // ('a','b'),"_"  flr = h('a', foldRight('b',(x0)->x0,h))
+  //                    = h('a',h('b',foldRight(Nil,(x0)->x0,h)))
+  //                    = h('a',h('b',(x0)->x0)))
+  //                    = h('a', (x1) -> ((x0)->x0)(f(x1,'b')) )
+  //                    = (x2) -> ((x1) -> ((x0)->x0)(f(x1,'b')) ))(f(x2,'a'))
+  //              flr("_") = ((x1) -> ((x0)->x0)(f(x1,'b')) ))(f("_",'a')) = ((x1) -> ((x0)->x0)(f(x1,'b')) ))("_a")
+  //              flr("_") = ((x0)->x0)(f("_a",'b'))
+  //              flr("_") = "_ab"
+
+  def lengthWithFoldLeft[A](l: MyList[A]) = foldLeft(l, 0, (x,_) => x+1)
+
+  def sumWithFoldLeft(ints: MyList[Int]): Int = foldLeft(ints, 0, (x,y) => x+y)
+
+  def productWithFoldLeft(doubles: MyList[Double]): Double = if doubles==Nil then 0.0 else foldLeft(doubles, 1.0, (x,y) => x*y)
+
+  def appendWithFold[A](l1: MyList[A], l2: MyList[A]): MyList[A] = foldRight(l1,l2,(x,acc) => Cons(x,acc) )
+  
+  def concatenate[A](ll: MyList[MyList[A]]) : MyList[A] =
+    foldRight(ll,MyList.Nil, (l:MyList[A],acc:MyList[A]) => append(l,acc))
+
   extension [A](l: MyList[A])
     def tail = l match
       case Nil => Nil
@@ -47,7 +96,6 @@ object MyList:
       loop(l)
     }
 
-
     def init() = {
       @annotation.tailrec
       def loop(xs: MyList[A], acc: MyList[A]) : MyList[A] = xs match
@@ -57,3 +105,7 @@ object MyList:
 
       loop(l, Nil)
     }
+
+    def length = foldRight(l, 0, (_,y) => y+1)
+
+    def reverse() = foldLeft(l, Nil, (x:MyList[A],y:A) => Cons(y,x))
