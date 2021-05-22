@@ -110,3 +110,41 @@ class TestChapter3:
     val l1 = MyList.of(MyList.of(1,2),MyList.of(3,4))
     val l2 = MyList.of(1,2,3,4)
     assertEquals(l2,MyList.concatenate(l1))
+
+  @Test def list_transformInts(): Unit =
+    val l1 = MyList.of(1,2,3,4)
+    assertEquals(MyList.of(2,3,4,5), MyList.transformInts(l1))
+
+  @Test def list_transformDouble(): Unit =
+    val l1 = MyList.of(1.0,2.0,3.0,4.0)
+    assertEquals(MyList.of("1.0","2.0","3.0","4.0"), MyList.transformDouble(l1))
+
+  @Test def list_map(): Unit =
+    val l1 = MyList.of(1,2,3,4)
+    assertEquals(MyList.of(2,4,6,8), MyList.map(l1,_*2))
+
+  @Test def list_map_2(): Unit =
+    val l1 = MyList.of(1,2,3,4)
+    assertEquals(MyList.of(2,4,6,8), MyList.map_2(l1,_*2))
+
+  @Test def list_filter(): Unit =
+    val l1 = MyList.of(1,2,3,4,5,6)
+    assertEquals(MyList.of(2,4,6), MyList.filter(l1,_%2==0))
+
+  @Test def list_flatMap(): Unit =
+    val l1 = MyList.of(1,2,3)
+    assertEquals(MyList.of(1,1,2,2,3,3), MyList.flatMap(l1,(i)=>MyList.of(i,i)))
+
+  @Test def list_filterWithFlatMap(): Unit =
+    val l1 = MyList.of(1,2,3,4,5,6)
+    assertEquals(MyList.of(2,4,6), MyList.filterWithFlatMap(l1,_%2==0))
+
+  @Test def list_addListOfInts(): Unit =
+    val l1 = MyList.of(1,2,3)
+    val l2 = MyList.of(4,5,6)
+    assertEquals(MyList.of(5,7,9), MyList.addListOfInts(l1,l2))
+
+  @Test def list_zipWith(): Unit =
+    val l1 = MyList.of(1,2,3)
+    val l2 = MyList.of(4,5,6)
+    assertEquals(MyList.of(5,7,9), MyList.zipWith(l1,l2,_+_))

@@ -1,3 +1,5 @@
+import javax.swing.plaf.multi.MultiListUI
+
 enum MyList[+A]:
   case Nil
   case Cons(head: A, tail: MyList[A])
@@ -72,6 +74,42 @@ object MyList:
   
   def concatenate[A](ll: MyList[MyList[A]]) : MyList[A] =
     foldRight(ll,MyList.Nil, (l:MyList[A],acc:MyList[A]) => append(l,acc))
+
+  def transformInts(myList: MyList[Int]) : MyList[Int] = myList match
+    case Nil => Nil
+    case Cons(x,xs) => Cons(x+1, transformInts(xs))
+
+  def transformDouble(myList: MyList[Double]) : MyList[String] = myList match
+    case Nil => Nil
+    case Cons(x,xs) => Cons(x.toString(), transformDouble(xs))
+
+  def map[A,B](xs:MyList[A],f: (A)=>B): MyList[B] = xs match
+    case Nil => Nil
+    case Cons(x,s) => Cons(f(x), map(s, f))
+
+  def map_2[A,B](xs:MyList[A],f: (A)=>B): MyList[B] =
+    foldRight(xs, Nil, (x:A, s:MyList[B]) => Cons(f(x),s))
+
+  def filter[A](xs:MyList[A],f: (A)=>Boolean): MyList[A] =
+    foldRight(xs, Nil, (x:A, s:MyList[A]) => if f(x) then Cons((x),s) else s)
+
+  def flatMap[A,B](xs:MyList[A],f: (A)=>MyList[B]): MyList[B] =
+    foldRight(xs,MyList.Nil, (x:A,s:MyList[B]) => append(f(x),s))
+
+  def filterWithFlatMap[A](xs:MyList[A],f: (A)=>Boolean): MyList[A] =
+    flatMap(xs, x => if f(x) then Cons(x,Nil) else Nil)
+
+  def addListOfInts(xs1:MyList[Int],xs2:MyList[Int]): MyList[Int] = xs1 match
+    case Nil => Nil
+    case Cons(x1,s1) => xs2 match
+      case Nil => Nil
+      case Cons(x2,s2) => Cons(x1+x2, addListOfInts(s1,s2))
+
+  def zipWith[A,B](xs1:MyList[A],xs2:MyList[A], f: (A,A)=>B): MyList[B] = xs1 match
+    case Nil => Nil
+    case Cons(x1,s1) => xs2 match
+      case Nil => Nil
+      case Cons(x2,s2) => Cons(f(x1,x2), zipWith(s1,s2,f))
 
   extension [A](l: MyList[A])
     def tail = l match
