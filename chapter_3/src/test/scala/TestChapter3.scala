@@ -92,7 +92,7 @@ class TestChapter3:
 
   @Test def List_foldRightWithFoldLeft(): Unit =
     val l1 = MyList.of('a','b','c')
-    val concat = MyList.foldRightWithFoldLeft(l1, "_", (x,y) => x+y)
+    val concat = MyList.foldRightWithFoldLeft(l1, "_", (x,y) => x.toString()+y)
     assertEquals("abc_",concat)
 
   @Test def List_foldLeftWithFoldRight(): Unit =
@@ -148,3 +148,27 @@ class TestChapter3:
     val l1 = MyList.of(1,2,3)
     val l2 = MyList.of(4,5,6)
     assertEquals(MyList.of(5,7,9), MyList.zipWith(l1,l2,_+_))
+
+  @Test def list_startWith(): Unit =
+    val l1 = MyList.of(1,2,3,4,5)
+    val l2 = MyList.of(1,2,3)
+    val l3 = MyList.of(2,3,4)
+    val l4 = MyList.of(1,2,3,4,5,6)
+    assertTrue(MyList.startWith(l1,l2))
+    assertFalse(MyList.startWith(l1,l3))
+    assertFalse(MyList.startWith(l1,l4))
+
+  @Test def list_hasSubsequence(): Unit =
+    val l1 = MyList.of(1,2,3,4)
+    assertTrue(MyList.hasSubsequence(l1,MyList.of(1,2,3)))
+    assertTrue(MyList.hasSubsequence(l1,MyList.of(2,3,4)))
+    assertTrue(MyList.hasSubsequence(l1,MyList.of(1,2)))
+    assertTrue(MyList.hasSubsequence(l1,MyList.of(2,3)))
+    assertTrue(MyList.hasSubsequence(l1,MyList.of(3,4)))
+    assertTrue(MyList.hasSubsequence(l1,MyList.of(1)))
+    assertTrue(MyList.hasSubsequence(l1,MyList.of(2)))
+    assertTrue(MyList.hasSubsequence(l1,MyList.of(3)))
+    assertTrue(MyList.hasSubsequence(l1,MyList.Nil))
+    assertFalse(MyList.hasSubsequence(l1,MyList.of(1,2,3,4,5)))
+    assertFalse(MyList.hasSubsequence(l1,MyList.of(2,4,3)))
+

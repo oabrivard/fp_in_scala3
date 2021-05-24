@@ -111,39 +111,51 @@ object MyList:
       case Nil => Nil
       case Cons(x2,s2) => Cons(f(x1,x2), zipWith(s1,s2,f))
 
-  extension [A](l: MyList[A])
-    def tail = l match
-      case Nil => Nil
-      case Cons(x, xs) => xs
+  def length[A](xs:MyList[A]) = MyList.foldRight(xs, 0, (_,acc) => acc+1)
 
-    def setHead(x: A) = Cons(x, l)
+  def startWith[A](xs1:MyList[A],xs2:MyList[A]): Boolean =
+    val xs = zipWith(xs1,xs2, _==_)
+    length(xs1)>=length(xs2) && foldLeft(xs,true, _&&_)
 
-    def drop(n: Int) = {
-      @annotation.tailrec
-      def loop(xs: MyList[A], i: Int): MyList[A] = if (i==0) xs else loop(xs.tail, i-1)
+  @annotation.tailrec
+  def hasSubsequence[A](xs1:MyList[A],xs2:MyList[A]): Boolean = xs1 match
+    case Nil => false
+    case Cons(x,s) => startWith(xs1,xs2) || hasSubsequence(s,xs2)
 
-      loop(l, n)
-    }
+extension [A](l: MyList[A])
+  def tail = l match
+    case MyList.Nil => MyList.Nil
+    case MyList.Cons(x, xs) => xs
 
-    def dropWhile(f: A => Boolean) = {
-      @annotation.tailrec
-      def loop(xs: MyList[A]): MyList[A] = xs match
-        case Nil => Nil
-        case Cons(x, xss) => if (!f(x)) xs else loop(xss)
+  def setHead(x: A) = MyList.Cons(x, l)
 
-      loop(l)
-    }
+  def drop(n: Int) = {
+    @annotation.tailrec
+    def loop(xs: MyList[A], i: Int): MyList[A] = if (i==0) xs else loop(xs.tail, i-1)
 
-    def init() = {
-      @annotation.tailrec
-      def loop(xs: MyList[A], acc: MyList[A]) : MyList[A] = xs match
-        case Nil => Nil
-        case Cons(x, Nil) => acc
-        case Cons(x, xss) => loop(xss, MyList.append(acc, MyList.of(x)))
+    loop(l, n)
+  }
 
-      loop(l, Nil)
-    }
+  def dropWhile(f: A => Boolean) = {
+    @annotation.tailrec
+    def loop(xs: MyList[A]): MyList[A] = xs match
+      case MyList.Nil => MyList.Nil
+      case MyList.Cons(x, xss) => if (!f(x)) xs else loop(xss)
 
-    def length = foldRight(l, 0, (_,y) => y+1)
+    loop(l)
+  }
 
-    def reverse() = foldLeft(l, Nil, (x:MyList[A],y:A) => Cons(y,x))
+  def init() = {
+    @annotation.tailrec
+    def loop(xs: MyList[A], acc: MyList[A]) : MyList[A] = xs match
+      case MyList.Nil => MyList.Nil
+      case MyList.Cons(x, MyList.Nil) => acc
+      case MyList.Cons(x, xss) => loop(xss, MyList.append(acc, MyList.of(x)))
+
+    loop(l, MyList.Nil)
+  }
+
+  def length = MyList.length(l)
+
+  def reverse() = MyList.foldLeft(l, MyList.Nil, (x:MyList[A],y:A) => MyList.Cons(y,x))
+
