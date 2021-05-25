@@ -1,7 +1,7 @@
 import org.junit.Test
 import org.junit.Assert.*
 
-class TestChapter3:
+class TestMyList:
   @Test def list_of(): Unit =
     val l1 = MyList.of(1,2,3)
     assertEquals(MyList.Cons(1,MyList.Cons(2, MyList.Cons(3, MyList.Nil))), l1)
