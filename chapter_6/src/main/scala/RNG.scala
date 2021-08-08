@@ -8,6 +8,8 @@ case class SimpleRNG(seed: Long) extends RNG:
     val n = (newSeed >>> 16).toInt
     (n, nextRNG)
 
+type Rand[+A] = RNG => (A, RNG)
+
 object RNG:
   def nonNegativeInt(rng: RNG): (Int, RNG) =
     val (i, r) = rng.nextInt
@@ -49,3 +51,59 @@ object RNG:
       }
 
     loop(List(),rng,count)
+
+  def unit[A](a: A): Rand[A] = rng => (a, rng)
+
+  def map[A,B](s: Rand[A])(f: A => B): Rand[B] = rng => {
+    val (a, rng2) = s(rng)
+    (f(a), rng2)
+  }
+
+  def doubleWithMap: Rand[Double] = map(nonNegativeInt)(_.toDouble / (Int.MaxValue.toDouble + 1.0))
+
+  def map2[A,B,C](ra: Rand[A], rb: Rand[B])(f: (A, B) => C): Rand[C] = rng => {
+    val (a, rng2) = ra(rng)
+    val (b, rng3) = rb(rng2)
+    (f(a,b),rng3)
+  }
+
+  def both[A,B](ra: Rand[A], rb: Rand[B]): Rand[(A,B)] = map2(ra, rb)((_, _))
+
+  val int: Rand[Int] = _.nextInt // shortcup for rng => rng.nextInt
+
+  val randIntDouble: Rand[(Int, Double)] = both(int, double)
+
+  val randDoubleInt: Rand[(Double, Int)] = both(double, int)
+
+  def sequence[A](fs: List[Rand[A]]): Rand[List[A]] = fs match
+    case h::t => map2(h,sequence(t)){ (x,xs) => x::xs }
+    case List() => unit(List())
+
+  def sequenceWithFold[A](fs: List[Rand[A]]): Rand[List[A]] =
+    fs.foldRight(unit(List[A]())) {(ra,rla) => map2(ra,rla) {_::_}}
+
+  def intsWithSequence(count: Int): Rand[List[Int]] = sequenceWithFold(List.fill(count)(int))
+
+  def flatMap[A,B](f: Rand[A])(g: A => Rand[B]): Rand[B] = rng => {
+    val (a, rng2) = f(rng)
+    g(a)(rng2)
+  }
+
+  def nonNegativeLessThan(n: Int): Rand[Int] =
+    flatMap(nonNegativeInt) {i => {
+      val mod = i % n
+      if i + (n-1) - mod >= 0 then
+        unit(mod)
+      else
+        nonNegativeLessThan(n)
+    }}
+
+  def mapWithFlatMap[A,B](s: Rand[A])(f: A => B): Rand[B] =
+    flatMap(s)(a => unit(f(a)))
+
+  def map2WithFlatMap[A,B,C](ra: Rand[A], rb: Rand[B])(f: (A, B) => C): Rand[C] =
+    flatMap(ra) { a =>
+      map(rb) { b =>
+        f(a,b)
+      }
+    }
