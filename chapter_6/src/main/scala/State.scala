@@ -18,6 +18,15 @@ object State:
         f(a,b)
       }
     }
-    
+
   def sequence[S,A](fs: List[State[S,A]]): State[S,List[A]] =
     fs.foldRight(unit(List[A]())) {(sa,sla) => map2(sa,sla) {_::_}}
+
+  def modify[S](f: S => S): State[S, Unit] = for {
+    s <- get // Gets the current state and assigns it to `s`.
+    _ <- set(f(s)) // Sets the new state to `f` applied to `s`.
+  } yield ()
+
+  def get[S]: State[S, S] = State(s => (s, s))
+
+  def set[S](s: S): State[S, Unit] = State(_ => ((), s))
