@@ -108,3 +108,31 @@ object Par:
   def map3[A,B,C,D](pa: Par[A], pb: Par[B], pc: Par[C])(f: (A,B,C) => D): Par[D] =
     map2( map2(pa,pb) { (a,b) => (c:C) => f(a,b,c)}, pc) {(f,c) => f(c)}
 
+  def choice[A](cond: Par[Boolean])(t: Par[A], f: Par[A]): Par[A] =
+    es => if (run(es)(cond).get) t(es) else f(es)
+
+  def choiceN[A](n: Par[Int])(choices: List[Par[A]]): Par[A] =
+    es => run(es)(choices(run(es)(n).get))
+
+  def choiceViaChoiceN[A](cond: Par[Boolean])(t: Par[A], f: Par[A]): Par[A] =
+    choiceN(Par.map(cond)(b => if b then 1 else 0))(List(t,f))
+
+  def chooser[A,B](pa: Par[A])(choices: A => Par[B]): Par[B] =
+    es => run(es){choices(run(es)(pa).get)}
+
+  def choiceViaChooser[A](cond: Par[Boolean])(t: Par[A], f: Par[A]): Par[A] =
+    chooser(cond){if _ then t else f}
+
+  def choiceNViaChooser[A](n: Par[Int])(choices: List[Par[A]]): Par[A] =
+    chooser(n){choices(_)}
+
+  def join[A](a: Par[Par[A]]): Par[A] = es => {
+    val p = run(es)(a).get
+    run(es)(p)
+  }
+
+  def flatMapViaJoin[A,B](pa: Par[A])(f: A => Par[B]): Par[B] =
+    join( map(pa)(f) )
+
+  def joinViaFlatmap[A](a: Par[Par[A]]): Par[A] =
+    chooser(a)(pa => pa)
