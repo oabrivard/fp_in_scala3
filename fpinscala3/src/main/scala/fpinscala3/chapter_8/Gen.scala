@@ -27,13 +27,49 @@ import java.util.concurrent.{ExecutorService, Executors}
     forAll(intList3)(ns => max(ns) == b)
 */
 
-trait Prop:
-  def check: Boolean
-  def &&(p: Prop): Prop = new Prop:
-    def check = Prop.this.check && p.check
+enum Result(val isFalsified: Boolean):
+  case Passed extends Result(false)
+  case Falsified(failure: FailedCase, successes: SuccessCount) extends Result(true)
+
+case class Prop(run: (TestCases,RNG) => Result):
+  def check: Boolean = ???
+
+  def &&(p: Prop): Prop = Prop {(n,rng) => {
+    val r = run(n,rng)
+    if r.isFalsified then r else p.run(n,rng)
+  }}
+
+  def ||(p: Prop): Prop = Prop {(n,rng) => { run(n,rng) match
+    case Result.Falsified(failure,_) => p.tag(failure).run(n,rng)
+    case p => p
+  }}
+
+  def tag(msg: FailedCase): Prop = Prop {(n,rng) => { run(n,rng) match
+    case Result.Falsified(failure,successes) => Result.Falsified(msg + "\n" +failure,successes)
+    case p => p
+  }}
 
 object Prop:
-  def forAll[A](gen: Gen[A])(f: A => Boolean): Prop = ???
+  type TestCases = Int
+  type FailedCase = String
+  type SuccessCount = Int
+
+  def forAll[A](as: Gen[A])(f: A => Boolean): Prop = Prop {
+    (n, rng) =>
+      randomStream(as)(rng).zip(LazyList.from(0)).take(n).map {
+        case (a, i) => try {
+          if (f(a)) Result.Passed else Result.Falsified(a.toString, i)
+        } catch {
+          case e: Exception => Result.Falsified(buildMsg(a, e), i)
+        }
+      }.find(_.isFalsified).getOrElse(Result.Passed)
+  }
+
+  def randomStream[A](g: Gen[A])(rng: RNG): LazyList[A] = LazyList.unfold(rng)(rng => Some(g.sample.run(rng)))
+  def buildMsg[A](s: A, e: Exception): String =
+    s"test case: $s\n" +
+    s"generated an exception: ${e.getMessage}\n" +
+    s"stack trace:\n ${e.getStackTrace.mkString("\n")}"
 
 object Gen:
   /*
@@ -58,7 +94,16 @@ trait Gen[A]:
   def flatMap[A,B](f: A => Gen[B]): Gen[B] = ???
 */
 case class Gen[A](sample: State[RNG,A]):
-  def map[A,B](f: A => B): Gen[B] = ???
-  def flatMap[A,B](f: A => Gen[B]): Gen[B] = ???
+  def map[B](f: A => B): Gen[B] = ???
+
+  def flatMap[B](f: A => Gen[B]): Gen[B] = Gen(sample.flatMap(f(_).sample))
+
+  def listOfN(size: Gen[Int]): Gen[List[A]] = size.flatMap {Gen.listOfN(_,this)}
+
+  def union[A](g1: Gen[A], g2: Gen[A]): Gen[A] = boolean flatMap {if (_) then g1 else g2}
+
+  def weighted[A](g1: (Gen[A],Double), g2: (Gen[A],Double)): Gen[A] =
+    val ratio = g1._2.abs / (g1._2.abs+g2._2.abs) * 100.0
+    choose(0,101) flatMap { (i:Int) => if (i > ratio.toInt) g2._1 else g1._1 }
 
 trait SGen[+A]
