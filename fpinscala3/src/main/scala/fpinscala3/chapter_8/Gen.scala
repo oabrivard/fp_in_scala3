@@ -31,31 +31,32 @@ enum Result(val isFalsified: Boolean):
   case Passed extends Result(false)
   case Falsified(failure: FailedCase, successes: SuccessCount) extends Result(true)
 
-case class Prop(run: (TestCases,RNG) => Result):
+case class Prop(run: (MaxSize,TestCases,RNG) => Result):
   def check: Boolean = ???
 
-  def &&(p: Prop): Prop = Prop {(n,rng) => {
-    val r = run(n,rng)
-    if r.isFalsified then r else p.run(n,rng)
+  def &&(p: Prop): Prop = Prop {(max,n,rng) => {
+    val r = run(max,n,rng)
+    if r.isFalsified then r else p.run(max,n,rng)
   }}
 
-  def ||(p: Prop): Prop = Prop {(n,rng) => { run(n,rng) match
-    case Result.Falsified(failure,_) => p.tag(failure).run(n,rng)
+  def ||(p: Prop): Prop = Prop {(max,n,rng) => { run(max,n,rng) match
+    case Result.Falsified(failure,_) => p.tag(failure).run(max,n,rng)
     case p => p
   }}
 
-  def tag(msg: FailedCase): Prop = Prop {(n,rng) => { run(n,rng) match
+  def tag(msg: FailedCase): Prop = Prop {(max,n,rng) => { run(max,n,rng) match
     case Result.Falsified(failure,successes) => Result.Falsified(msg + "\n" +failure,successes)
     case p => p
   }}
 
 object Prop:
+  type MaxSize = Int
   type TestCases = Int
   type FailedCase = String
   type SuccessCount = Int
 
   def forAll[A](as: Gen[A])(f: A => Boolean): Prop = Prop {
-    (n, rng) =>
+    (max, n, rng) =>
       randomStream(as)(rng).zip(LazyList.from(0)).take(n).map {
         case (a, i) => try {
           if (f(a)) Result.Passed else Result.Falsified(a.toString, i)
@@ -66,10 +67,26 @@ object Prop:
   }
 
   def randomStream[A](g: Gen[A])(rng: RNG): LazyList[A] = LazyList.unfold(rng)(rng => Some(g.sample.run(rng)))
+
   def buildMsg[A](s: A, e: Exception): String =
     s"test case: $s\n" +
     s"generated an exception: ${e.getMessage}\n" +
     s"stack trace:\n ${e.getStackTrace.mkString("\n")}"
+
+  def forAll[A](g: SGen[A])(f: A => Boolean): Prop =
+    forAll(g(_))(f)
+
+  def forAll[A](g: Int => Gen[A])(f: A => Boolean): Prop = Prop {
+    (max,n,rng) =>
+      val casesPerSize = (n - 1) / max + 1
+      val props: LazyList[Prop] =
+        LazyList.from(0).take((n min max) + 1).map(i => forAll(g(i))(f))
+      val prop: Prop =
+        props.map(p => Prop { (max, n, rng) =>
+          p.run(max, casesPerSize, rng)
+        }).toList.reduce(_ && _)
+      prop.run(max,n,rng)
+  }
 
 object Gen:
   /*
@@ -88,13 +105,15 @@ object Gen:
     val l = List.fill(n)(g.sample)
     Gen(State.sequence(l))
 
+  def listOf[A](g: Gen[A]): SGen[List[A]] = SGen {listOfN(_,g)}
+
 /*
 trait Gen[A]:
   def map[A,B](f: A => B): Gen[B] = ???
   def flatMap[A,B](f: A => Gen[B]): Gen[B] = ???
 */
-case class Gen[A](sample: State[RNG,A]):
-  def map[B](f: A => B): Gen[B] = ???
+case class Gen[+A](sample: State[RNG,A]):
+  def map[B](f: A => B): Gen[B] = Gen(sample.map(f))
 
   def flatMap[B](f: A => Gen[B]): Gen[B] = Gen(sample.flatMap(f(_).sample))
 
@@ -106,4 +125,11 @@ case class Gen[A](sample: State[RNG,A]):
     val ratio = g1._2.abs / (g1._2.abs+g2._2.abs) * 100.0
     choose(0,101) flatMap { (i:Int) => if (i > ratio.toInt) g2._1 else g1._1 }
 
-trait SGen[+A]
+  def unsized: SGen[A] = SGen { _ => this}
+
+case class SGen[+A](forSize: Int => Gen[A]):
+  def apply(n: Int): Gen[A] = forSize(n)
+
+  def map[B](f: A => B): SGen[B] = SGen { forSize(_) map f }
+
+  def flatMap[B](f: A => SGen[B]): SGen[B] = SGen { i => forSize(i).flatMap(f(_)(i)) }
