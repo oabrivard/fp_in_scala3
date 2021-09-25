@@ -88,6 +88,16 @@ object Prop:
       prop.run(max,n,rng)
   }
 
+  def run(p: Prop,
+        maxSize: Int = 100,
+        testCases: Int = 100,
+        rng: RNG = SimpleRNG(System.currentTimeMillis)): Unit =
+    p.run(maxSize, testCases, rng) match
+      case Result.Falsified(msg, n) =>
+        println(s"! Falsified after $n passed tests:\n $msg")
+      case Result.Passed =>
+        println(s"+ OK, passed $testCases tests.")
+
 object Gen:
   /*
   Implement Gen.choose using this representation of Gen. It should generate integers in the
@@ -106,6 +116,8 @@ object Gen:
     Gen(State.sequence(l))
 
   def listOf[A](g: Gen[A]): SGen[List[A]] = SGen {listOfN(_,g)}
+
+  def listOf1[A](g: Gen[A]): SGen[List[A]] = SGen {n => listOfN(n max 1,g)}
 
 /*
 trait Gen[A]:
