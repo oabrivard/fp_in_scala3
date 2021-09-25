@@ -1,10 +1,12 @@
 package fpinscala3.chapter_7
 
-import java.util.concurrent.TimeUnit
+import java.util.concurrent._
 
+/*
 abstract class ExecutorService {
   def submit[A](a: Callable[A]): Future[A]
 }
+
 
 trait Callable[A] { def call: A }
 
@@ -15,6 +17,11 @@ trait Future[A] {
   def isDone: Boolean
   def isCancelled: Boolean
 }
+
+def sequentialExecutor[A]() : ExecutorService = new ExecutorService {
+  def submit[A](a: Callable[A]): Future[A] = UnitFuture(a.call)
+}
+*/
 
 type Par[A] = ExecutorService => Future[A]
 
@@ -44,10 +51,6 @@ object Par:
         cache = Some(ret)
         ret
       }
-
-  def sequentialExecutor[A]() : ExecutorService = new ExecutorService {
-    def submit[A](a: Callable[A]): Future[A] = UnitFuture(a.call)
-  }
 
   def unit[A](a: A): Par[A] = (es: ExecutorService) => UnitFuture(a)
 
