@@ -1,5 +1,6 @@
 package fpinscala3.chapter_10
 
+import fpinscala3.chapter_7.Nonblocking.*
 import fpinscala3.chapter_8.*
 
 trait Monoid[A]:
@@ -79,3 +80,32 @@ def foldMapV[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B): B = {
   }
 }
 
+def par[A](m: Monoid[A]): Monoid[Par[A]] = new Monoid[Par[A]] {
+  def op(p1: Par[A], p2: Par[A]) : Par[A] = p1.map2(p2)(m.op)
+  val zero = Par.unit(m.zero)
+}
+
+def parFoldMap2[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B): Par[B] = Par.parMap(v)(f).flatMap { bs =>
+  foldMapV(bs, par(m))(b => Par.lazyUnit(b))
+}
+/*
+def parFoldMap[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B): Par[B] = {
+  val pm = par(m)
+
+  if (v.length == 0) {
+    pm.zero
+  } else if (v.length == 1) {
+    Par.lazyUnit(f(v.head))
+  } else {
+    val (left, right) = v.splitAt(v.length / 2)
+    pm.op(parFoldMap(left, m)(f), parFoldMap(right, m)(f))
+  }
+}
+*/
+
+val intComparison: Monoid[Int] = new Monoid[Int] {
+  def op(a1: Int, a2: Int) = if a1 <= a2 then a2 else Int.MaxValue
+  val zero = Int.MinValue
+}
+
+def isOrdered(v: IndexedSeq[Int]): Boolean = foldMap(v.toList, intComparison)(identity) < Int.MaxValue

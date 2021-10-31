@@ -171,8 +171,9 @@ object Gen:
     val g1Threshold = g1._2.abs / (g1._2.abs + g2._2.abs)
     Gen(State(RNG.double).flatMap(d => if (d < g1Threshold) g1._1.sample else g2._1.sample))
 
-  object **:
-    def unapply[A,B](p: (A,B)) = Some(p)
+  object ** {
+    def unapply[A, B](p: (A, B)) = Some(p)
+  }
 
   def listOf1[A](g: Gen[A]): SGen[List[A]] = SGen {n => listOfN(n max 1,g)}
 
