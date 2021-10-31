@@ -109,3 +109,14 @@ val intComparison: Monoid[Int] = new Monoid[Int] {
 }
 
 def isOrdered(v: IndexedSeq[Int]): Boolean = foldMap(v.toList, intComparison)(identity) < Int.MaxValue
+
+enum WC:
+  case Stub(chars: String)
+  case Part(lStub: String, words: Int, rStub: String)
+
+val wcMonoid: Monoid[WC] = new Monoid[WC] {
+  override def op(wc1: WC, wc2: WC): WC = (wc1,wc2) match {
+    case (WC.Stub(s1),WC.Stub(s2)) => WC.Stub(s1+s2)
+  }
+  override def zero: WC = WC.Stub("")
+}
