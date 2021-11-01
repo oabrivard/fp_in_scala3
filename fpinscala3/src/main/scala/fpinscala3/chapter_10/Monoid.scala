@@ -116,7 +116,21 @@ enum WC:
 
 val wcMonoid: Monoid[WC] = new Monoid[WC] {
   override def op(wc1: WC, wc2: WC): WC = (wc1,wc2) match {
+    case (WC.Part(ls1,wc1,rs1),WC.Part(ls2,wc2,rs2)) => WC.Part(ls1,wc1 + wc2 + (if (rs1+ls2).isEmpty then 0 else 1),rs2)
+    case (WC.Part(ls1,wc1,rs1),WC.Stub(s2)) => WC.Part(ls1,wc1, rs1+s2)
+    case (WC.Stub(s1),WC.Part(ls2,wc2,rs2)) => WC.Part(s1+ls2, wc2, rs2)
     case (WC.Stub(s1),WC.Stub(s2)) => WC.Stub(s1+s2)
   }
   override def zero: WC = WC.Stub("")
+}
+
+def countChars(s: String) : Int = {
+  def charToWC(c: Char): WC = if c.isWhitespace then WC.Part("",0,"") else WC.Stub(c.toString)
+
+  def unstub(s: String): Int = s.length min 1
+
+  foldMapV(s.toIndexedSeq,wcMonoid)(charToWC) match {
+    case WC.Stub(s) => unstub(s)
+    case WC.Part(ls,wc,rs) => unstub(ls) + wc + unstub(rs)
+  }
 }
