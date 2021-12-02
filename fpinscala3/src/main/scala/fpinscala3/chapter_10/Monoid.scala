@@ -2,6 +2,7 @@ package fpinscala3.chapter_10
 
 import fpinscala3.chapter_7.Nonblocking.*
 import fpinscala3.chapter_8.*
+import fpinscala3.chapter_3.*
 
 trait Monoid[A]:
   def op(a1: A, a2: A): A
@@ -133,4 +134,32 @@ def countChars(s: String) : Int = {
     case WC.Stub(s) => unstub(s)
     case WC.Part(ls,wc,rs) => unstub(ls) + wc + unstub(rs)
   }
+}
+
+trait Foldable[F[_]] {
+  def foldRight[A,B](as: F[A])(z: B)(f: (A,B) => B): B = foldMap(as)(f.curried)(endoMonoid[B])(z)
+
+  def foldLeft[A,B](as: F[A])(z: B)(f: (B,A) => B): B =  foldMap(as)(a => b => f(b,a))(dual(endoMonoid[B]))(z)
+
+  def foldMap[A,B](as: F[A])(f: A => B)(mb: Monoid[B]): B = foldRight(as)(mb.zero)((a, b) => mb.op(f(a), b))
+
+  def concatenate[A](as: F[A])(m: Monoid[A]): A = foldLeft(as)(m.zero)(m.op)
+}
+
+object ListFoldable extends Foldable[List] {
+  override def foldRight[A, B](as: List[A])(z: B)(f: (A, B) => B) = as.foldRight(z)(f)
+}
+
+object IndexedSeqFoldable extends Foldable[IndexedSeq] {
+  override def foldRight[A, B](as: IndexedSeq[A])(z: B)(f: (A, B) => B) = as.foldRight(z)(f)
+}
+
+object StreamFoldable extends Foldable[LazyList] {
+  override def foldRight[A, B](as: LazyList[A])(z: B)(f: (A, B) => B) =
+    as.foldRight(z)(f)
+}
+
+object MyTreeFoldable extends Foldable[MyTree] {
+  override def foldMap[A,B](as: MyTree[A])(f: A => B)(mb: Monoid[B]): B =
+    as.fold(f,mb.op)
 }
