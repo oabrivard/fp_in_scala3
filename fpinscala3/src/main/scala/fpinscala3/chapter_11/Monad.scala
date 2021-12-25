@@ -15,6 +15,17 @@ trait Monad[F[_]] extends Functor[F] {
 
   def map[A,B](ma: F[A])(f: A => B): F[B] = flatMap(ma)(a => unit(f(a)))
   def map2[A,B,C](ma: F[A], mb: F[B])(f: (A, B) => C): F[C] = flatMap(ma)(a => map(mb)(b => f(a, b)))
+  def sequence[A](lma: List[F[A]]): F[List[A]] = lma.foldRight(unit(List[A]()))((ma, mla) => map2(ma, mla) {_::_})
+  def traverse[A,B](la: List[A])(f: A => F[B]): F[List[B]] = sequence(la.map(f))
+  def replicateM[A](n: Int, ma: F[A]): F[List[A]] = sequence(List.fill(n)(ma)) // map(ma){a => List.fill(n)(a)}
+  def product[A,B](ma: F[A], mb: F[B]): F[(A, B)] = map2(ma, mb)((_, _))
+  def filterM[A](ms: List[A])(f: A => F[Boolean]): F[List[A]] =
+    ms.foldRight(unit(List[A]())) {(a,mla) => map2(f(a),mla) { (bool,xs) => if bool then a::xs else xs }}
+  def compose[A,B,C](f: A => F[B], g: B => F[C]): A => F[C] = a => flatMap(f(a))(g)
+  def flatMapC[A,B](ma: F[A])(f: A => F[B]): F[B] = compose((_:Unit) => ma, f)(())
+  def join[A](mma: F[F[A]]): F[A] = flatMap(mma)(identity)
+  def flatMapJ[A,B](ma: F[A])(f: A => F[B]): F[B] = join(map(ma)(f))
+  def composeJ[A,B,C](f: A => F[B], g: B => F[C]): A => F[C] = a => join(map(f(a))(g))
 }
 
 object ListMonad extends Monad[List] {
@@ -45,4 +56,14 @@ val parMonad = new Monad[Par] {
 def stateMonad[S] = new Monad[({type f[x] = State[S, x]})#f] {
   def unit[A](a: => A): State[S, A] = State.unit(a)
   override def flatMap[A,B](st: State[S, A])(f: A => State[S, B]): State[S, B] = st flatMap f
+}
+
+case class Id[A](value: A) {
+  def map[B](f: A => B): Id[B] = Id(f(value))
+  def flatMap[B](f: A => Id[B]): Id[B] = f(value)
+}
+
+val idMonad = new Monad[Id] {
+  def unit[A](a: => A): Id[A] = Id(a)
+  def flatMap[A,B](ma: Id[A])(f: A => Id[B]): Id[B] = ma.flatMap(f)
 }
