@@ -67,3 +67,28 @@ val idMonad = new Monad[Id] {
   def unit[A](a: => A): Id[A] = Id(a)
   def flatMap[A,B](ma: Id[A])(f: A => Id[B]): Id[B] = ma.flatMap(f)
 }
+
+val F = stateMonad[Int]
+
+def zipWithIndex[A](as: List[A]): List[(Int,A)] =
+  as.foldLeft(F.unit(List[(Int, A)]()))((acc,a) => for {
+    xs <- acc
+    n  <- State.get
+    _  <- State.set(n + 1)
+  } yield (n, a) :: xs).run(0)._1.reverse
+
+case class Reader[R, A](run: R => A)
+object Reader {
+  def readerMonad[R] = new Monad[({type f[x] = Reader[R,x]})#f] {
+    def unit[A](a: => A): Reader[R,A] = Reader(_ => a)
+    def flatMap[A,B](st: Reader[R,A])(f: A => Reader[R,B]): Reader[R,B] =  Reader(r => {
+      val a = st.run(r)
+      f(a).run(r)
+    })
+  }
+}
+
+val stringReaderM = Reader.readerMonad[String]
+val intReader = Reader[String,Int](s => s.toInt)
+val div2M = stringReaderM.flatMap(intReader)(i => stringReaderM.unit(i / 2.0))
+val div2 = div2M.run("100")
