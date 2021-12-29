@@ -2,6 +2,8 @@ package fpinscala3.chapter_12
 
 import fpinscala3.chapter_11.Functor
 
+import scala.runtime.Nothing$
+
 trait Applicative[F[_]] extends Functor[F] {
   def unit[A](a: => A): F[A]
 
@@ -34,6 +36,22 @@ trait Applicative[F[_]] extends Functor[F] {
                       fd:
                       F[D])(f: (A, B, C, D) => E): F[E] =
     apply(apply(apply(map(fa)(f.curried))(fb))(fc))(fd)
+
+  def product[G[_]](g: Applicative[G]) : Applicative[({type f[x] = (F[x], G[x])})#f] =
+    val self = this
+    new Applicative[({type f[x] = (F[x], G[x])})#f] {
+      def unit[A](a: => A) = (self.unit(a),g.unit(a))
+      override def apply[A,B](fabs: (F[A => B],G[A => B]))(a: (F[A],G[A])): (F[B],G[B]) =
+        (self.apply(fabs._1)(a._1),g.apply(fabs._2)(a._2))
+  }
+
+  def compose[G[_]](g: Applicative[G]): Applicative[({type f[x] = F[G[x]]})#f] =
+    val self = this
+    new Applicative[({type f[x] = F[G[x]]})#f] {
+      def unit[A](a: => A) = self.unit((g.unit(a)))
+      override def map2[A,B,C](fga: F[G[A]],fgb: F[G[B]])(f: (A, B) => C) : F[G[C]] =
+        self.map2(fga,fgb) {(ga,gb) => g.map2(ga,gb)(f)}
+    }
 }
 
 trait Monad[F[_]] extends Applicative[F] {
@@ -42,6 +60,15 @@ trait Monad[F[_]] extends Applicative[F] {
   override def map[A,B](fa: F[A])(f: A => B): F[B] = flatMap(fa)((a: A) => unit(f(a)))
   def compose[A,B,C](f: A => F[B], g: B => F[C]): A => F[C] = a => flatMap(f(a))(g)
   override def map2[A,B,C](fa: F[A], fb: F[B])(f: (A, B) => C): F[C] = flatMap(fa)(a => map(fb)(b => f(a,b)))
+
+  def compose[G[_]](g: Monad[G]): Monad[({type f[x] = F[G[x]]})#f] =
+    val self = this
+    new Monad[({type f[x] = F[G[x]]})#f] {
+      def unit[A](a: => A) = self.unit((g.unit(a)))
+      override def flatMap[A,B](fga: F[G[A]])(f: A => F[G[B]]): F[G[B]] =
+        def toGB(fgb: F[G[B]]): G[B] = ??? // Impossible
+        self.flatMap(fga){ga => self.unit(g.flatMap(ga) {a => toGB(f(a))}) }
+    }
 }
 
 val streamApplicative = new Applicative[LazyList] {
@@ -69,3 +96,4 @@ def validationApplicative[E] = new Applicative[({type f[x] = Validation[E, x]})#
       case (_, e@Validation.Failure(_, _)) => e
     }
 }
+
