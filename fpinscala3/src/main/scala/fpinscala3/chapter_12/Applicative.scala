@@ -5,6 +5,7 @@ import fpinscala3.chapter_11.Functor
 import fpinscala3.chapter_6.State
 
 import scala.runtime.Nothing$
+import scala.language.implicitConversions
 
 trait Applicative[F[_]] extends Functor[F] {
   def unit[A](a: => A): F[A]
@@ -140,6 +141,21 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
     _  <- State.set(s2)
   } yield b).run(s)
 
+  def fuse[G[_],H[_],A,B](fa: F[A])(f: A => G[B], g: A => H[B]) (G: Applicative[G], H: Applicative[H]): (G[F[B]], H[F[B]]) =
+    traverse[({type f[x] = (G[x], H[x])})#f, A, B](fa)(a => (f(a), g(a)))(G product H)
+    /*
+    val l = traverse(fa)(f)(G)
+    val r = traverse(fa)(g)(H)
+    (l,r)
+    */
+
+  def compose[G[_]](implicit G: Traverse[G]): Traverse[({type f[x] = F[G[x]]})#f] =
+    val self = this
+    new Traverse[({type f[x] = F[G[x]]})#f] {
+      override def traverse[M[_]:Applicative,A,B](fa: F[G[A]])(f: A => M[B]) : M[F[G[B]]] =
+        self.traverse(fa)(ga => G.traverse(ga)(f))
+    }
+
   override def toList[A](fa: F[A]): List[A] =
     mapAccum(fa, List[A]())((a, s) => ((), a :: s))._2.reverse
 
@@ -150,6 +166,18 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
 
   override def foldLeft[A,B](as: F[A])(z: B)(f: (B,A) => B): B =
     mapAccum(as,z)((a,s) => ((),f(s,a)))._2
+
+  def zip[A,B](fa: F[A], fb: F[B]): F[(A, B)] = (mapAccum(fa, toList(fb)) {
+    case (a, Nil) => sys.error("zip: Incompatible shapes.")
+    case (a, b :: bs) => ((a, b), bs) })._1
+
+  def zipL[A,B](fa: F[A], fb: F[B]): F[(A, Option[B])] = (mapAccum(fa, toList(fb)) {
+    case (a, Nil) => ((a, None), Nil)
+    case (a, b :: bs) => ((a, Some(b)), bs) })._1
+
+  def zipR[A,B](fa: F[A], fb: F[B]): F[(Option[A], B)] = (mapAccum(fb, toList(fa)) {
+    case (b, Nil) => ((None, b), Nil)
+    case (b, a :: as) => ((Some(a), b), as) })._1
 }
 
 val optionTraverse = new Traverse[Option] {
