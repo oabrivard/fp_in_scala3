@@ -1,6 +1,8 @@
 package fpinscala3.chapter_12
 
+import fpinscala3.chapter_10.{Foldable, Monoid}
 import fpinscala3.chapter_11.Functor
+import fpinscala3.chapter_6.State
 
 import scala.runtime.Nothing$
 
@@ -52,6 +54,9 @@ trait Applicative[F[_]] extends Functor[F] {
       override def map2[A,B,C](fga: F[G[A]],fgb: F[G[B]])(f: (A, B) => C) : F[G[C]] =
         self.map2(fga,fgb) {(ga,gb) => g.map2(ga,gb)(f)}
     }
+
+  def sequenceMap[K,V](ofa: Map[K,F[V]]): F[Map[K,V]] =
+    ofa.foldRight(unit(Map[K,V]())) { (kfv,fm) => map2(kfv._2,fm) {(v,m) => m + (kfv._1 -> v)} }
 }
 
 trait Monad[F[_]] extends Applicative[F] {
@@ -95,5 +100,63 @@ def validationApplicative[E] = new Applicative[({type f[x] = Validation[E, x]})#
       case (e@Validation.Failure(_, _), _) => e
       case (_, e@Validation.Failure(_, _)) => e
     }
+}
+
+type Id[A] = A
+def idApplicative = new Monad[Id] {
+  def unit[A](a: => A): Id[A] = a
+  override def flatMap[A,B](fa: Id[A])(f: A => Id[B]): Id[B] = f(fa)
+}
+
+type Const[M, B] = M
+
+implicit def monoidApplicative[M](M: Monoid[M]): Applicative[({ type f[x] = Const[M, x] })#f] =
+  new Applicative[({ type f[x] = Const[M, x] })#f] {
+    def unit[A](a: => A): M = M.zero
+    override def apply[A,B](m1: M)(m2: M): M = M.op(m1, m2)
+  }
+
+def stateMonad[S] = new Monad[({type f[x] = State[S, x]})#f] {
+  def unit[A](a: => A): State[S, A] = State.unit(a)
+  override def flatMap[A,B](st: State[S, A])(f: A => State[S, B]): State[S, B] = st flatMap f
+}
+
+trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
+  def traverse[G[_]:Applicative,A,B](fa: F[A])(f: A => G[B]): G[F[B]] =
+    sequence(map(fa)(f))
+  def sequence[G[_]:Applicative,A](fga: F[G[A]]): G[F[A]] =
+    traverse(fga)(ga => ga)
+
+  def map[A,B](fa: F[A])(f: A => B): F[B] = traverse(fa){a => idApplicative.unit(f(a))}(idApplicative)
+  override def foldMap[A,M](as: F[A])(f: A => M)(mb: Monoid[M]): M =
+    traverse[({type f[x] = Const[M,x]})#f,A,Nothing](as)(f)(monoidApplicative(mb))
+
+  def traverseS[S,A,B](fa: F[A])(f: A => State[S, B]): State[S, F[B]] =
+    traverse[({type f[x] = State[S,x]})#f,A,B](fa)(f)(stateMonad)
+
+  def mapAccum[S,A,B](fa: F[A], s: S)(f: (A, S) => (B, S)): (F[B], S) = traverseS(fa)((a: A) => for {
+    s1 <- State.get[S]
+    (b, s2) = f(a, s1)
+    _  <- State.set(s2)
+  } yield b).run(s)
+
+  override def toList[A](fa: F[A]): List[A] =
+    mapAccum(fa, List[A]())((a, s) => ((), a :: s))._2.reverse
+    
+  def zipWithIndex[A](fa: F[A]): F[(A, Int)] = mapAccum(fa, 0)((a, s) => ((a, s), s + 1))._1
+}
+
+val optionTraverse = new Traverse[Option] {
+  override def map[A,B](fa: Option[A])(f: A => B): Option[B] = fa map f
+}
+
+val listTraverse = new Traverse[List] {
+  override def map[A,B](fa: List[A])(f: A => B): List[B] = fa map f
+}
+
+case class Tree[+A](head: A, tail: List[Tree[A]])
+
+val treeTraverse = new Traverse[Tree] {
+  override def map[A,B](fa: Tree[A])(f: A => B): Tree[B] = Tree(f(fa.head), fa.tail.map(t => map(t)(f)))
 }
 
