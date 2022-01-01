@@ -194,3 +194,20 @@ val treeTraverse = new Traverse[Tree] {
   override def map[A,B](fa: Tree[A])(f: A => B): Tree[B] = Tree(f(fa.head), fa.tail.map(t => map(t)(f)))
 }
 
+def composeM[G[_],H[_]](implicit G: Monad[G], H: Monad[H], T: Traverse[H]): Monad[({type f[x] = G[H[x]]})#f] =
+  new Monad[({type f[x] = G[H[x]]})#f] {
+    def unit[A](a: => A): G[H[A]] = G.unit(H.unit(a))
+    override def flatMap[A,B](mna: G[H[A]])(f: A => G[H[B]]): G[H[B]] =
+      G.flatMap(mna)(na => {
+        val ga = T.traverse(na)(f)
+        G.map(ga)(H.join)
+      })
+  }
+
+case class OptionT[M[_],A](value: M[Option[A]])(implicit M: Monad[M]) {
+  def flatMap[B](f: A => OptionT[M, B]): OptionT[M, B] =
+    OptionT(M.flatMap(value) {
+      case None => M.unit(None)
+      case Some(a) => f(a).value
+    })
+}
